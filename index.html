@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body{margin:0;}
+
+#maindiv {
+	margin: auto;
+	position: relative;
+	width: 800px;
+	height: 800px;
+	user-select: none;
+	overflow:hidden;
+}
+
+#maindiv > div {
+	position: absolute;
+	width: 90px;
+	height: 90px;
+	user-select: none;
+}
+
+#titletext {
+	margin:40px;
+	text-align: center;
+	font-size: 75px;
+	line-height: 0;
+	user-select: none;
+	font-family: 'Brush Script MT', cursive;
+}
+
+#scoretext {
+	text-align: center;
+	text-align: center;
+	line-height: 0;
+	user-select: none;
+  font-family: Arial, sans-serif;
+}
+</style>
+</head>
+<body>
+
+<p id="titletext">Tile Match</p>
+<p id="scoretext">00000</p> 
+<div id="maindiv"></div>
+<script>
+var tiletypes = ["red","blue","green","yellow","lightseagreen","orange","cyan","moccasin","darkblue","darkred",
+				"lightblue","lightred","lightgreen","darkviolet","indigo"];
+
+class Tile {
+	constructor(id) {
+		this.div = "";
+		this.column = 0;
+		this.row = 0;
+		this.type = "black";
+		this.id = id;
+		this.dead = false;
+	}
+	settype(type) {
+		this.type = type;
+	}
+	randomtype(typerange) {
+		let random = Math.floor(Math.random() * typerange);
+		this.type = tiletypes[random];
+	}
+	setrow(row) {
+		this.row = row;
+	}
+	setdivrow(oldrow, newrow) {
+		if (oldrow == newrow)
+			return;
+		var id = null;
+		var elem = this.div;
+		var row_start = oldrow;
+		var ticker = 0;
+		var end_ticker = (newrow - oldrow) * 8;
+		clearInterval(id);
+		id = setInterval(frame, 10);
+		game.tilesfalling += 1;
+		function frame() {
+			if (ticker == end_ticker) {
+				clearInterval(id);
+				elem.style.top = (newrow*100+5) + "px";
+				game.tilesfalling -= 1;
+				if (game.tilesfalling == 0)
+					game.checkmatches()
+			} else {
+				ticker++;
+				let newloc = (ticker/8) + row_start;
+				elem.style.top = (newloc*100+5) + "px";
+			}
+		}
+	}
+	setcolumn(column) {
+		this.column = column;
+	}
+	updaterow(amount) {
+		let oldrow = this.row;
+		this.row += amount;
+		this.setdivrow(oldrow, this.row);
+	}
+	creatediv() {	
+		this.div = document.createElement("div");
+		this.div.style.backgroundColor = this.type;
+		this.div.classList.add("tile");
+		this.div.id = "tile" + this.id;
+		this.div.style.top = (-1*100+5) + "px";
+		this.div.style.left = (this.column*100+5) + "px";
+		this.div.onclick = () => this.onclick();
+		this.div.onmouseover = () => this.onmouseover();
+		this.div.onmouseleave = () => this.onmouseleave();
+		return this.div;
+	}
+	deletediv() {
+		this.dead = true;
+		var id = null;
+		var elem = this.div;
+		var ticker = 0;
+		var row = this.row;
+		var col = this.column;
+		clearInterval(id);
+		id = setInterval(frame, 10);
+		elem.style.zIndex = 1000;
+		function frame() {
+			if (ticker == 10) {
+				clearInterval(id);
+				elem.remove();
+			} else {
+				ticker++;
+				elem.style.top = (row*100+5-ticker*2) + "px";
+				elem.style.left = (col*100+5-ticker*2) + "px";
+				elem.style.width = (90+ticker*4) + "px";
+				elem.style.height = (90+ticker*4) + "px";
+				elem.style.opacity = 1-(ticker/10);
+			}
+		}
+	}
+	onclick() {
+		if(game.tilesfalling)
+			return;			
+		this.deletediv();
+		game.updatecolumn(this.column);
+	}
+	onmouseover() {
+		if(game.pause)
+			return;
+		this.div.style.outline = "thick solid white";
+	}
+	onmouseleave() {
+		if(game.pause)
+			return;
+		this.div.style.outline = "";
+	}
+}
+
+class GameManager 
+{
+	constructor() {
+		this.score = 0;
+		this.currentid = 0;
+		this.tilearray = new Array(8);
+		for(let i = 0; i < 8; i++)
+			this.tilearray[i] = new Array(8);
+		this.level = 8;
+		this.maindiv = document.getElementById("maindiv");
+		this.pause = false;
+		this.tilesfalling = 0;
+	}
+	updatecolumn(column) {
+		let col = this.tilearray[column];
+		
+		// remove all tiles that are destroyed
+		for (let row = 0; row < 8; row++) {
+			if (col[row] == undefined)
+				continue;
+			if (col[row].dead)
+				col[row] = null;
+		}
+		
+		// move down tiles
+		let moves = 0;
+		for (let row = 7; row >= 0; row--) {
+			if (col[row] == undefined) {
+				moves++;
+			} else if (moves > 0) {
+				col[row].updaterow(moves);
+				col[row+moves] = col[row];
+				col[row] = null;
+			}
+		}
+		
+		// add new tiles
+		let count = 0;
+		for (let row = 7; row >= 0; row--) {
+			if (col[row] == undefined) {
+				count++;
+				let newtile = new Tile(this.currentid);
+				this.currentid += 1;
+				newtile.setcolumn(column);
+				newtile.setrow(row);
+				newtile.randomtype(this.level);
+				this.maindiv.appendChild(newtile.creatediv());
+				newtile.setdivrow(-count,row);
+				col[row] = newtile;
+			}
+		}
+	}
+	updatescore() {
+		let scoretext = String(this.score).padStart(5,'0');
+		document.getElementById("scoretext").innerHTML = scoretext;		
+	}
+	checkmatches() {
+		var anymatches = false;
+		var tiles = this.tilearray;
+		for (let y = 0; y < 8; y++)
+		{
+			for (let x = 1; x < 7; x++) {
+				if (tiles[x-1][y] == undefined || tiles[x][y] == undefined || tiles[x+1][y] == undefined)
+					continue;
+				if (tiles[x-1][y].dead || tiles[x][y].dead || tiles[x+1][y].dead)
+					continue;
+				if (tiles[x-1][y].type == tiles[x][y].type && tiles[x][y].type == tiles[x+1][y].type)
+				{
+					anymatches = true;
+					this.score += 3;
+					tiles[x-1][y].deletediv();
+					tiles[x][y].deletediv();
+					tiles[x+1][y].deletediv();
+				}
+			}
+		}
+		for (let x = 0; x < 8; x++)
+		{
+			for (var y = 1; y < 7; y++) {
+				if (tiles[x][y-1] == undefined || tiles[x][y] == undefined || tiles[x][y+1] == undefined)
+					continue;
+				if (tiles[x][y-1].dead || tiles[x][y].dead || tiles[x][y+1].dead)
+					continue;
+				if (tiles[x][y-1].type == tiles[x][y].type && tiles[x][y].type == tiles[x][y+1].type)
+				{
+					anymatches = true;
+					this.score += 3;
+					tiles[x][y-1].deletediv();
+					tiles[x][y].deletediv();
+					tiles[x][y+1].deletediv();
+				}
+			}
+		}
+		this.updatescore();
+		if (anymatches)
+			this.updategrid()
+	}
+	gettile(div) {
+		let tileid = Number(div.id.substr(4));
+		for (const tile of this.tilearray) {
+			if(tile.id == tileid)
+				return tile;
+		}
+		return null;			
+	}
+	updategrid() {
+		for (let i = 0; i < 8; i++)
+			this.updatecolumn(i);
+	}
+}
+
+var game = new GameManager();
+game.updategrid();
+</script>
+</body>
+</html>
