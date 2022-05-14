@@ -28,14 +28,26 @@ body{margin:0;}
 	user-select: none;
 	font-family: 'Brush Script MT', cursive;
 }
-
 #scoretext {
 	text-align: center;
+	line-height: 0;
+	font-size: 25px;
+	user-select: none;
+	font-family: Arial, sans-serif;
+}
+.points {
+	position: absolute;
 	text-align: center;
 	line-height: 0;
+	font-size: 100px;
 	user-select: none;
-  font-family: Arial, sans-serif;
+	color: white;
+	font-family: 'Brush Script MT', cursive;
+	text-shadow: 0 0 8px #000000;
+	transform: translate(-50%, -50%);
+	white-space: nowrap;
 }
+
 </style>
 </head>
 <body>
@@ -166,20 +178,48 @@ class Tile {
 				clearInterval(id);
 				id = setInterval(frame, 10);
 				game.tilesfalling += 1;
+				game.selectedtile = null;
 				function frame() {
 					if (ticker == 10) {
-						clearInterval(id);
-						elem1.style.left = (elem1_column*100+5) + "px";
-						elem2.style.left = (elem2_column*100+5) + "px";
-						game.tilesfalling -= 1;
-						game.selectedtile = null;
-						[tile1.type, tile2.type] = [tile2.type, tile1.type];
-						elem1.style.backgroundColor = tile1.type;
-						elem2.style.backgroundColor = tile2.type;
-						elem1.style.zIndex = "auto";
-						elem2.style.zIndex = "auto";
-						if (game.tilesfalling == 0)
-							game.checkmatches()
+						let validmove = false;
+						if(game.validmove(tile1.column, tile1.row, tile2.type))
+							validmove = true;
+						if(game.validmove(tile2.column, tile2.row, tile1.type))
+							validmove = true;
+						if (validmove)
+						{
+							clearInterval(id);
+							elem1.style.left = (elem1_column*100+5) + "px";
+							elem2.style.left = (elem2_column*100+5) + "px";
+							game.tilesfalling -= 1;
+							[tile1.type, tile2.type] = [tile2.type, tile1.type];
+							elem1.style.backgroundColor = tile1.type;
+							elem2.style.backgroundColor = tile2.type;
+							elem1.style.zIndex = "auto";
+							elem2.style.zIndex = "auto";
+							if (game.tilesfalling == 0)
+								game.checkmatches();
+						} else {
+							ticker = 0;
+							clearInterval(id);
+							id = setInterval(revertframe, 10);
+							function revertframe() {
+								if (ticker == 10) {
+									clearInterval(id);
+									game.tilesfalling -= 1;
+									elem1.style.left = (elem1_column*100+5) + "px";
+									elem2.style.left = (elem2_column*100+5) + "px";
+									elem1.style.zIndex = "auto";
+									elem2.style.zIndex = "auto";
+								} else {
+									ticker++;
+									let elem2_loc = (ticker/10)*(-direction) + elem1_column;
+									let elem1_loc = (ticker/10)*(direction) + elem2_column;
+									elem1.style.left = (elem1_loc*100+5) + "px";
+									elem2.style.left = (elem2_loc*100+5) + "px";
+								}
+							}									
+						}						
 					} else {
 						ticker++;
 						let elem1_loc = (ticker/10)*(-direction) + elem1_column;
@@ -204,18 +244,46 @@ class Tile {
 				clearInterval(id);
 				id = setInterval(frame, 10);
 				game.tilesfalling += 1;
+							game.selectedtile = null;
 				function frame() {
 					if (ticker == 10) {
-						clearInterval(id);
-						elem1.style.top = (elem1_row*100+5) + "px";
-						elem2.style.top = (elem2_row*100+5) + "px";
-						game.tilesfalling -= 1;
-						game.selectedtile = null;
-						[tile1.type, tile2.type] = [tile2.type, tile1.type];
-						elem1.style.backgroundColor = tile1.type;
-						elem2.style.backgroundColor = tile2.type;
-						if (game.tilesfalling == 0)
-							game.checkmatches()
+						let validmove = false;
+						if(game.validmove(tile1.column, tile1.row, tile2.type))
+							validmove = true;
+						if(game.validmove(tile2.column, tile2.row, tile1.type))
+							validmove = true;
+						if (validmove)
+						{
+							clearInterval(id);
+							elem1.style.top = (elem1_row*100+5) + "px";
+							elem2.style.top = (elem2_row*100+5) + "px";
+							game.tilesfalling -= 1;
+							[tile1.type, tile2.type] = [tile2.type, tile1.type];
+							elem1.style.backgroundColor = tile1.type;
+							elem2.style.backgroundColor = tile2.type;
+							if (game.tilesfalling == 0)
+								game.checkmatches();
+						} else {
+							ticker = 0;
+							clearInterval(id);
+							id = setInterval(revertframe, 10);
+							function revertframe() {
+								if (ticker == 10) {
+									clearInterval(id);
+									game.tilesfalling -= 1;
+									elem1.style.top = (elem1_row*100+5) + "px";
+									elem2.style.top = (elem2_row*100+5) + "px";
+									elem1.style.zIndex = "auto";
+									elem2.style.zIndex = "auto";
+								} else {
+									ticker++;
+									let elem2_loc = (ticker/10)*(-direction) + elem1_row;
+									let elem1_loc = (ticker/10)*(direction) + elem2_row;
+									elem1.style.top = (elem1_loc*100+5) + "px";
+									elem2.style.top = (elem2_loc*100+5) + "px";
+								}
+							}									
+						}
 					} else {
 						ticker++;
 						let elem1_loc = (ticker/10)*(-direction) + elem1_row;
@@ -250,11 +318,19 @@ class GameManager
 		this.tilearray = new Array(8);
 		for(let i = 0; i < 8; i++)
 			this.tilearray[i] = new Array(8);
-		this.level = 8;
+		this.level = 5;
 		this.maindiv = document.getElementById("maindiv");
+		this.combdiv = document.createElement("div");
+		this.combdiv.classList.add("points");
+		this.combdiv.style.left = 250 + "px";
+		this.combdiv.style.top = 400 + "px";
+		this.maindiv.appendChild(this.combdiv);
+		this.combdiv.style.zIndex = 1500;	
+		this.combdivid = null;
 		this.pause = false;
 		this.tilesfalling = 0;
 		this.selectedtile = null;
+		this.currentcombo = 0;
 	}
 	updatecolumn(column) {
 		let col = this.tilearray[column];
@@ -263,8 +339,10 @@ class GameManager
 		for (let row = 0; row < 8; row++) {
 			if (col[row] == undefined)
 				continue;
-			if (col[row].dead)
+			if (col[row].dead) {
+				col[row].deletediv();
 				col[row] = null;
+			}
 		}
 		
 		// move down tiles
@@ -297,48 +375,132 @@ class GameManager
 	}
 	updatescore() {
 		let scoretext = String(this.score).padStart(5,'0');
-		document.getElementById("scoretext").innerHTML = scoretext;		
+		document.getElementById("scoretext").innerHTML = scoretext;
+		if (this.score > this.level * 1000 - 4000)
+			this.level++;
+	}
+	checkline(line, axis) {
+		let anymatches = 0;
+		let column = 0, row = 0;
+		for (let i = 0; i < 6; i++) {
+			if (axis)
+				{column = i; row = line;}
+			else 
+				{row = i; column = line;}
+			let tiles = [this.tilearray[column][row]];
+			let type = tiles[0].type;
+			for (i++; i < 8; i++) {
+				if (axis)
+					{column = i; row = line;}
+				else 
+					{row = i; column = line;}
+				if (this.tilearray[column][row].type == type)
+					tiles.push(this.tilearray[column][row]);
+				else
+					break;
+			}
+			i--;
+			if (tiles.length <= 2)
+				continue;
+			if (tiles.length == 3)
+				this.pointsbubble(3, 40, tiles[1]);
+			if (tiles.length == 4)
+				this.pointsbubble(10, 60, tiles[1]);
+			if (tiles.length >= 5)
+				this.pointsbubble(50, 80, tiles[2]);
+			for(const tile of tiles)
+				if(tile.dead)
+					this.pointsbubble(100, 100, tile);
+				else
+					tile.dead = true;
+			anymatches += 1;
+		}		
+		return anymatches;
+	}
+	pointsbubble(amount,fontsize,tile) {
+		this.score += amount;
+		let mainrect = this.maindiv.getBoundingClientRect();
+		let x = tile.column * 100 + 50 + mainrect.left;
+		let y = tile.row * 100 + 75 + mainrect.top;
+		let newdiv = document.createElement("div");
+		newdiv.innerHTML = amount;
+		newdiv.style.top = y + "px";
+		newdiv.style.left = x + "px";
+		newdiv.style.fontSize  = fontsize + "px";;
+		var ticker = 0;
+		var id = null;
+		clearInterval(id);
+		id = setInterval(frame, 1);
+		newdiv.classList.add("points");
+		//game.maindiv.appendChild(newdiv);
+		document.body.appendChild(newdiv);
+		newdiv.style.zIndex = 1000;	
+		function frame() {
+			if (ticker == 100) {
+				clearInterval(id);
+				newdiv.remove();
+			} else {
+				ticker++;
+				newdiv.style.top = (y - (ticker/2)) + "px";
+			}		
+		}
+	}
+	combo() {
+		this.score += this.currentcombo * 10;
+		this.combdiv.innerHTML = "COMBO x" + this.currentcombo;
+		var currentcombo = this.currentcombo;
+		var ticker = 0;
+		clearInterval(game.combdivid);
+		game.combdivid = setInterval(frame, 1);
+		game.combdiv.hidden = false;
+		function frame() {	
+			if (ticker == 350) {
+				clearInterval(game.combdivid);
+				game.combdiv.hidden = true;
+			} else {
+				ticker++;
+				game.combdiv.style.opacity = 1 - (ticker/350);
+			}		
+		}
 	}
 	checkmatches() {
-		var anymatches = false;
-		var tiles = this.tilearray;
-		for (let y = 0; y < 8; y++)
-		{
-			for (let x = 1; x < 7; x++) {
-				if (tiles[x-1][y] == undefined || tiles[x][y] == undefined || tiles[x+1][y] == undefined)
-					continue;
-				if (tiles[x-1][y].dead || tiles[x][y].dead || tiles[x+1][y].dead)
-					continue;
-				if (tiles[x-1][y].type == tiles[x][y].type && tiles[x][y].type == tiles[x+1][y].type)
-				{
-					anymatches = true;
-					this.score += 3;
-					tiles[x-1][y].deletediv();
-					tiles[x][y].deletediv();
-					tiles[x+1][y].deletediv();
-				}
-			}
+		let anymatches = 0;
+		for (let i = 0; i < 8; i++) {
+			anymatches += this.checkline(i, true);
+			anymatches += this.checkline(i, false);
 		}
-		for (let x = 0; x < 8; x++)
-		{
-			for (var y = 1; y < 7; y++) {
-				if (tiles[x][y-1] == undefined || tiles[x][y] == undefined || tiles[x][y+1] == undefined)
-					continue;
-				if (tiles[x][y-1].dead || tiles[x][y].dead || tiles[x][y+1].dead)
-					continue;
-				if (tiles[x][y-1].type == tiles[x][y].type && tiles[x][y].type == tiles[x][y+1].type)
-				{
-					anymatches = true;
-					this.score += 3;
-					tiles[x][y-1].deletediv();
-					tiles[x][y].deletediv();
-					tiles[x][y+1].deletediv();
-				}
-			}
-		}
-		this.updatescore();
 		if (anymatches)
-			this.updategrid()
+		{
+			this.currentcombo += anymatches;
+			if (this.currentcombo > 1)
+				this.combo();
+			this.updatescore();
+			this.updategrid();
+		}
+		else
+			this.currentcombo = 0;
+		this.updatescore();
+	}
+	validmove(column, row, type) {
+		if (1 < row)
+			if (this.tilearray[column][row - 1].type == type && this.tilearray[column][row - 2].type == type)
+				return true;
+		if (0 < row && row < 7)
+			if (this.tilearray[column][row - 1].type == type && this.tilearray[column][row + 1].type == type)
+				return true;
+		if (row < 6)
+			if (this.tilearray[column][row + 1].type == type && this.tilearray[column][row + 2].type == type)
+				return true;
+		if (1 < column)
+			if (this.tilearray[column - 1][row].type == type && this.tilearray[column - 2][row].type == type)
+				return true;
+		if (0 < column && column < 7)
+			if (this.tilearray[column - 1][row].type == type && this.tilearray[column + 1][row].type == type)
+				return true;
+		if (column < 6)
+			if (this.tilearray[column + 1][row].type == type && this.tilearray[column + 2][row].type == type)
+				return true;
+		return false;
 	}
 	gettile(div) {
 		let tileid = Number(div.id.substr(4));
