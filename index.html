@@ -113,6 +113,7 @@ class Tile {
 	}
 	deletediv() {
 		this.dead = true;
+		this.div.style.outline = "";
 		var id = null;
 		var elem = this.div;
 		var ticker = 0;
@@ -136,20 +137,108 @@ class Tile {
 		}
 	}
 	onclick() {
-		if(game.tilesfalling)
+		if (game.tilesfalling)
 			return;			
-		this.deletediv();
-		game.updatecolumn(this.column);
+		if (game.selectedtile == null)
+		{
+			game.selectedtile = this;
+			this.div.style.boxShadow  = "0 0 50px black";
+			this.div.style.outline = "";
+			this.div.style.zIndex = 1000;
+		} else if (game.selectedtile == this) {
+			game.selectedtile = null;
+			this.div.style.boxShadow  = "";
+			this.div.style.outline = "";
+			this.div.style.zIndex = "auto";
+		} else {
+			if (game.selectedtile.row == this.row && (game.selectedtile.column == this.column - 1 || game.selectedtile.column == this.column + 1)) {
+				game.selectedtile.div.style.boxShadow = "";
+				this.div.style.boxShadow = "";
+				var id = null;
+				var tile1 = this;
+				var tile2 = game.selectedtile;
+				var elem1 = this.div;
+				var elem2 = game.selectedtile.div;
+				var elem1_column = this.column;
+				var elem2_column = game.selectedtile.column;
+				var direction = elem1_column - elem2_column;
+				var ticker = 0;
+				clearInterval(id);
+				id = setInterval(frame, 10);
+				game.tilesfalling += 1;
+				function frame() {
+					if (ticker == 10) {
+						clearInterval(id);
+						elem1.style.left = (elem1_column*100+5) + "px";
+						elem2.style.left = (elem2_column*100+5) + "px";
+						game.tilesfalling -= 1;
+						game.selectedtile = null;
+						[tile1.type, tile2.type] = [tile2.type, tile1.type];
+						elem1.style.backgroundColor = tile1.type;
+						elem2.style.backgroundColor = tile2.type;
+						elem1.style.zIndex = "auto";
+						elem2.style.zIndex = "auto";
+						if (game.tilesfalling == 0)
+							game.checkmatches()
+					} else {
+						ticker++;
+						let elem1_loc = (ticker/10)*(-direction) + elem1_column;
+						let elem2_loc = (ticker/10)*(direction) + elem2_column;
+						elem1.style.left = (elem1_loc*100+5) + "px";
+						elem2.style.left = (elem2_loc*100+5) + "px";
+					}
+				}
+			} else if (game.selectedtile.column == this.column && (game.selectedtile.row == this.row - 1 || game.selectedtile.row == this.row + 1)) {
+				game.selectedtile.div.style.boxShadow = "";
+				this.div.style.boxShadow = "";
+				game.selectedtile.div.style.outline = "";
+				var id = null;
+				var tile1 = this;
+				var tile2 = game.selectedtile;
+				var elem1 = this.div;
+				var elem2 = game.selectedtile.div;
+				var elem1_row = this.row;
+				var elem2_row = game.selectedtile.row;
+				var direction = elem1_row - elem2_row;
+				var ticker = 0;
+				clearInterval(id);
+				id = setInterval(frame, 10);
+				game.tilesfalling += 1;
+				function frame() {
+					if (ticker == 10) {
+						clearInterval(id);
+						elem1.style.top = (elem1_row*100+5) + "px";
+						elem2.style.top = (elem2_row*100+5) + "px";
+						game.tilesfalling -= 1;
+						game.selectedtile = null;
+						[tile1.type, tile2.type] = [tile2.type, tile1.type];
+						elem1.style.backgroundColor = tile1.type;
+						elem2.style.backgroundColor = tile2.type;
+						if (game.tilesfalling == 0)
+							game.checkmatches()
+					} else {
+						ticker++;
+						let elem1_loc = (ticker/10)*(-direction) + elem1_row;
+						let elem2_loc = (ticker/10)*(direction) + elem2_row;
+						elem1.style.top = (elem1_loc*100+5) + "px";
+						elem2.style.top = (elem2_loc*100+5) + "px";
+					}
+				}
+			}
+		}
+		
 	}
 	onmouseover() {
-		if(game.pause)
+		if (game.pause)
 			return;
-		this.div.style.outline = "thick solid white";
+		if (game.selectedtile != this)
+			this.div.style.outline = "";
 	}
 	onmouseleave() {
 		if(game.pause)
 			return;
-		this.div.style.outline = "";
+		if (game.selectedtile != this)
+			this.div.style.outline = "";
 	}
 }
 
@@ -165,6 +254,7 @@ class GameManager
 		this.maindiv = document.getElementById("maindiv");
 		this.pause = false;
 		this.tilesfalling = 0;
+		this.selectedtile = null;
 	}
 	updatecolumn(column) {
 		let col = this.tilearray[column];
@@ -262,10 +352,31 @@ class GameManager
 		for (let i = 0; i < 8; i++)
 			this.updatecolumn(i);
 	}
+	newgame() {
+		for (let column = 0; column < 8; column++)
+			setTimeout(()=> {
+				// add new tiles
+				let col = game.tilearray[column];
+				let count = 0;
+				for (let row = 7; row >= 0; row--)
+					if (col[row] == undefined) {
+						count++;
+						let newtile = new Tile(game.currentid);
+						game.currentid += 1;
+						newtile.setcolumn(column);
+						newtile.setrow(row);
+						newtile.randomtype(game.level);
+						game.maindiv.appendChild(newtile.creatediv());
+						newtile.setdivrow(-count,row);
+						col[row] = newtile;
+					}
+				} ,
+				Math.floor(Math.random() * 20)*20);
+	}
 }
 
 var game = new GameManager();
-game.updategrid();
+game.newgame();
 </script>
 </body>
 </html>
