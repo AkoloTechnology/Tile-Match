@@ -13,13 +13,14 @@ body{margin:0;}
 	overflow:hidden;
 }
 
-#maindiv > div {
+.tile {
 	position: absolute;
 	width: 90px;
 	height: 90px;
 	user-select: none;
+	border-radius: 10px;
+	overflow: hidden;
 }
-
 #titletext {
 	margin:40px;
 	text-align: center;
@@ -33,7 +34,7 @@ body{margin:0;}
 	line-height: 0;
 	font-size: 25px;
 	user-select: none;
-	font-family: Arial, sans-serif;
+	pointer-events: none;
 }
 .points {
 	position: absolute;
@@ -46,27 +47,114 @@ body{margin:0;}
 	text-shadow: 0 0 8px #000000;
 	transform: translate(-50%, -50%);
 	white-space: nowrap;
+	pointer-events: none;
 }
-
+.combo {
+	position: absolute;
+	text-align: center;
+	line-height: 0;
+	font-size: 100px;
+	user-select: none;
+	color: white;
+	font-family: 'Brush Script MT', cursive;
+	text-shadow: 0 0 8px #000000;
+	transform: translate(-50%, -50%);
+	white-space: nowrap;
+	pointer-events: none;
+	left: 400px;
+	top: 400px;
+	z-index: 1500;
+}
+#gameover {
+	position: absolute;
+	width: 500px;
+	height: 600px;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	user-select: none;
+	z-index: 2000;
+}
+#gameover > p{
+	text-align: center;
+}
+#gameovertitle {
+	font-size: 75px;
+	font-family: Arial, sans-serif;
+	text-shadow: 2px 2px #aaaaaa;
+}
+#gameoverscore {
+	font-size: 30px;
+	font-family: Arial, sans-serif;
+}
+#gameoverentername {
+	font-size: 30px;
+	font-family: Arial, sans-serif;
+}
+@keyframes spin {
+  from {transform: translate(-50%, -50%) rotate(0);}
+  to   {transform: translate(-50%, -50%) rotate(360deg);}
+}
+.rainbow {
+    content: '';
+    display: block;
+    width: calc(100% * 1.41421356237);
+    padding-bottom: calc(100% * 1.41421356237);
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 100%;
+    animation: spin 5s linear infinite;
+    background: repeating-conic-gradient(black 0%, white 10%, black 20%);
+}
+.innertile {
+    width: calc(100% * 1.41421356237);
+    padding-bottom: calc(100% * 1.41421356237);
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+.disk {
+    position: absolute;
+    display: block;
+	width: 25px;
+	height: 25px;
+    border-radius: 100%;
+	z-index: 500;
+	box-shadow: 0 0 15px #444444;
+}
 </style>
 </head>
 <body>
 
 <p id="titletext">Tile Match</p>
 <p id="scoretext">00000</p> 
-<div id="maindiv"></div>
+<div id="maindiv">
+</div>
+<div id="gameover" hidden>
+	<p id="gameovertitle">Game Over</p>
+	<p id="gameoverscore">Score 65346</p>
+	<p id="gameoverentername">Enter your name for highscore!</p>
+</div>
 <script>
-var tiletypes = ["red","blue","green","yellow","lightseagreen","orange","cyan","moccasin","darkblue","darkred",
+
+
+
+var tiletypes = ["red","blue","green","#DFFF00","lightseagreen","orange","cyan","moccasin","darkblue","darkred",
 				"lightblue","lightred","lightgreen","darkviolet","indigo"];
 
 class Tile {
 	constructor(id) {
 		this.div = "";
+		this.innertile = "";
 		this.column = 0;
 		this.row = 0;
 		this.type = "black";
 		this.id = id;
 		this.dead = false;
+		this.special = false;
 	}
 	settype(type) {
 		this.type = type;
@@ -75,223 +163,203 @@ class Tile {
 		let random = Math.floor(Math.random() * typerange);
 		this.type = tiletypes[random];
 	}
-	setrow(row) {
-		this.row = row;
-	}
-	setdivrow(oldrow, newrow) {
+	divfall(oldrow, newrow) {
 		if (oldrow == newrow)
 			return;
-		var id = null;
-		var elem = this.div;
-		var row_start = oldrow;
-		var ticker = 0;
-		var end_ticker = (newrow - oldrow) * 8;
-		clearInterval(id);
-		id = setInterval(frame, 10);
 		game.tilesfalling += 1;
+		game.pause = true;
+		let elem = this.div;
+		let ticker = 0, end_ticker = (newrow - oldrow) * 8;
+		let id = setInterval(frame, 10);
 		function frame() {
 			if (ticker == end_ticker) {
 				clearInterval(id);
-				elem.style.top = (newrow*100+5) + "px";
-				game.tilesfalling -= 1;
-				if (game.tilesfalling == 0)
-					game.checkmatches()
+				elem.style.top = (newrow * 100 + 5) + "px";
+				game.tilesfallingdone();
 			} else {
 				ticker++;
-				let newloc = (ticker/8) + row_start;
-				elem.style.top = (newloc*100+5) + "px";
+				elem.style.top = (((ticker / 8) + oldrow) * 100 + 5) + "px";
 			}
 		}
 	}
 	setcolumn(column) {
 		this.column = column;
 	}
+	setrow(row) {
+		this.row = row;
+	}
 	updaterow(amount) {
 		let oldrow = this.row;
 		this.row += amount;
-		this.setdivrow(oldrow, this.row);
+		this.divfall(oldrow, this.row);
+	}
+	updatecolor() {
+		let color = this.type;
+		if (this.special) {
+			this.innertile.classList.add("rainbow");
+			this.innertile.style.backgroundColor = "";
+			this.innertile.style.background = "repeating-conic-gradient(" + color + " 0%, #DDDDDD 10%, " + color + " 20%)";
+		} else {
+			this.innertile.classList.remove("rainbow");
+			this.innertile.style.background = "";
+			this.innertile.style.backgroundColor = color;
+		}
 	}
 	creatediv() {	
 		this.div = document.createElement("div");
-		this.div.style.backgroundColor = this.type;
 		this.div.classList.add("tile");
+		this.innertile = document.createElement("div");
+		this.innertile.classList.add("innertile");
+		this.div.appendChild(this.innertile);
+		this.updatecolor();
 		this.div.id = "tile" + this.id;
-		this.div.style.top = (-1*100+5) + "px";
-		this.div.style.left = (this.column*100+5) + "px";
+		this.div.style.top = (-1 * 100 + 5) + "px";
+		this.div.style.left = (this.column * 100 + 5) + "px";
 		this.div.onclick = () => this.onclick();
 		this.div.onmouseover = () => this.onmouseover();
 		this.div.onmouseleave = () => this.onmouseleave();
 		return this.div;
 	}
 	deletediv() {
-		this.dead = true;
-		this.div.style.outline = "";
-		var id = null;
 		var elem = this.div;
-		var ticker = 0;
-		var row = this.row;
-		var col = this.column;
-		clearInterval(id);
-		id = setInterval(frame, 10);
+		var row = this.row, col = this.column;
 		elem.style.zIndex = 1000;
+		var ticker = 0, id = setInterval(frame, 10);
 		function frame() {
 			if (ticker == 10) {
 				clearInterval(id);
 				elem.remove();
 			} else {
 				ticker++;
-				elem.style.top = (row*100+5-ticker*2) + "px";
-				elem.style.left = (col*100+5-ticker*2) + "px";
-				elem.style.width = (90+ticker*4) + "px";
-				elem.style.height = (90+ticker*4) + "px";
-				elem.style.opacity = 1-(ticker/10);
+				elem.style.top = (row * 100 + 5 - ticker * 2) + "px";
+				elem.style.left = (col * 100 + 5 - ticker * 2) + "px";
+				elem.style.width = (90 + ticker * 4) + "px";
+				elem.style.height = (90 + ticker * 4) + "px";
+				elem.style.opacity = 1 - (ticker / 10);
 			}
 		}
 	}
 	onclick() {
-		if (game.tilesfalling)
-			return;			
-		if (game.selectedtile == null)
-		{
+		if (game.tilesfalling || game.pause)
+			return;
+		if (game.selectedtile == null) {
 			game.selectedtile = this;
 			this.div.style.boxShadow  = "0 0 50px black";
-			this.div.style.outline = "";
 			this.div.style.zIndex = 1000;
 		} else if (game.selectedtile == this) {
 			game.selectedtile = null;
 			this.div.style.boxShadow  = "";
-			this.div.style.outline = "";
 			this.div.style.zIndex = "auto";
 		} else {
-			if (game.selectedtile.row == this.row && (game.selectedtile.column == this.column - 1 || game.selectedtile.column == this.column + 1)) {
-				game.selectedtile.div.style.boxShadow = "";
-				this.div.style.boxShadow = "";
-				var id = null;
-				var tile1 = this;
-				var tile2 = game.selectedtile;
-				var elem1 = this.div;
-				var elem2 = game.selectedtile.div;
-				var elem1_column = this.column;
-				var elem2_column = game.selectedtile.column;
-				var direction = elem1_column - elem2_column;
-				var ticker = 0;
-				clearInterval(id);
-				id = setInterval(frame, 10);
+			var tile = this;
+			var seltile = game.selectedtile;
+			var ticker = 0;
+			if (seltile.row == tile.row && (seltile.column == tile.column - 1 || seltile.column == tile.column + 1)) {
+				seltile.div.style.boxShadow = "";
+				var direction = tile.column - seltile.column;
+				var id = setInterval(frame, 10);
 				game.tilesfalling += 1;
+				game.pause = true;
 				game.selectedtile = null;
 				function frame() {
 					if (ticker == 10) {
-						[tile1.type, tile2.type] = [tile2.type, tile1.type];
+						[tile.type, seltile.type] = [seltile.type, tile.type];
 						let validmove = false;
-						if(game.validmove(tile1.column, tile1.row, tile1.type))
+						if(game.validmove(tile.column, tile.row, tile.type))
 							validmove = true;
-						if(game.validmove(tile2.column, tile2.row, tile2.type))
+						else if(game.validmove(seltile.column, seltile.row, seltile.type))
 							validmove = true;
 						if (validmove)
 						{
+							[tile.special, seltile.special] = [seltile.special, tile.special];
 							clearInterval(id);
-							elem1.style.left = (elem1_column*100+5) + "px";
-							elem2.style.left = (elem2_column*100+5) + "px";
-							game.tilesfalling -= 1;
-							elem1.style.backgroundColor = tile1.type;
-							elem2.style.backgroundColor = tile2.type;
-							elem1.style.zIndex = "auto";
-							elem2.style.zIndex = "auto";
-							if (game.tilesfalling == 0)
-								game.checkmatches();
+							tile.div.style.left = (tile.column * 100 + 5) + "px";
+							tile.updatecolor();
+							seltile.div.style.left = (seltile.column * 100 + 5) + "px";
+							seltile.updatecolor();
+							seltile.div.style.zIndex = "auto";
+							game.tilesfallingdone(false);
 						} else {
-							[tile1.type, tile2.type] = [tile2.type, tile1.type];
+							[tile.type, seltile.type] = [seltile.type, tile.type];
 							ticker = 0;
 							clearInterval(id);
 							id = setInterval(revertframe, 10);
 							function revertframe() {
 								if (ticker == 10) {
 									clearInterval(id);
-									game.tilesfalling -= 1;
-									elem1.style.left = (elem1_column*100+5) + "px";
-									elem2.style.left = (elem2_column*100+5) + "px";
-									elem1.style.zIndex = "auto";
-									elem2.style.zIndex = "auto";
+									tile.div.style.left = (tile.column * 100 + 5) + "px";
+									seltile.div.style.left = (seltile.column * 100 + 5) + "px";
+									seltile.div.style.zIndex = "auto";
+									game.tilesfallingdone(true);
 								} else {
 									ticker++;
-									let elem2_loc = (ticker/10)*(-direction) + elem1_column;
-									let elem1_loc = (ticker/10)*(direction) + elem2_column;
-									elem1.style.left = (elem1_loc*100+5) + "px";
-									elem2.style.left = (elem2_loc*100+5) + "px";
+									let tile_offset = (ticker / 10) * (-direction) + tile.column;
+									let seltile_offset = (ticker / 10) * (direction) + seltile.column;
+									tile.div.style.left = (seltile_offset * 100 + 5) + "px";
+									seltile.div.style.left = (tile_offset * 100 + 5) + "px";
 								}
 							}									
 						}						
 					} else {
 						ticker++;
-						let elem1_loc = (ticker/10)*(-direction) + elem1_column;
-						let elem2_loc = (ticker/10)*(direction) + elem2_column;
-						elem1.style.left = (elem1_loc*100+5) + "px";
-						elem2.style.left = (elem2_loc*100+5) + "px";
+						let tile_offset = (ticker / 10) * (-direction) + tile.column;
+						let seltile_offset = (ticker / 10) * (direction) + seltile.column;
+						tile.div.style.left = (tile_offset * 100 + 5) + "px";
+						seltile.div.style.left = (seltile_offset * 100 + 5) + "px";
 					}
 				}
-			} else if (game.selectedtile.column == this.column && (game.selectedtile.row == this.row - 1 || game.selectedtile.row == this.row + 1)) {
-				game.selectedtile.div.style.boxShadow = "";
-				this.div.style.boxShadow = "";
-				game.selectedtile.div.style.outline = "";
-				var id = null;
-				var tile1 = this;
-				var tile2 = game.selectedtile;
-				var elem1 = this.div;
-				var elem2 = game.selectedtile.div;
-				var elem1_row = this.row;
-				var elem2_row = game.selectedtile.row;
-				var direction = elem1_row - elem2_row;
-				var ticker = 0;
-				clearInterval(id);
-				id = setInterval(frame, 10);
+			} else if (seltile.column == tile.column && (seltile.row == tile.row - 1 || seltile.row == tile.row + 1)) {
+				seltile.div.style.boxShadow = "";
+				var direction = tile.row - seltile.row;
+				var id = setInterval(frame, 10);
 				game.tilesfalling += 1;
-							game.selectedtile = null;
+				game.pause = true;
+				game.selectedtile = null;
 				function frame() {
 					if (ticker == 10) {
-						[tile1.type, tile2.type] = [tile2.type, tile1.type];
+						[tile.type, seltile.type] = [seltile.type, tile.type];
 						let validmove = false;
-						if(game.validmove(tile1.column, tile1.row, tile1.type))
+						if(game.validmove(tile.column, tile.row, tile.type))
 							validmove = true;
-						if(game.validmove(tile2.column, tile2.row, tile2.type))
+						else if(game.validmove(seltile.column, seltile.row, seltile.type))
 							validmove = true;
 						if (validmove)
 						{
+							[tile.special, seltile.special] = [seltile.special, tile.special];
 							clearInterval(id);
-							elem1.style.top = (elem1_row*100+5) + "px";
-							elem2.style.top = (elem2_row*100+5) + "px";
-							game.tilesfalling -= 1;
-							elem1.style.backgroundColor = tile1.type;
-							elem2.style.backgroundColor = tile2.type;
-							if (game.tilesfalling == 0)
-								game.checkmatches();
+							tile.div.style.top = (tile.row * 100 + 5) + "px";
+							tile.updatecolor();
+							seltile.div.style.top = (seltile.row * 100 + 5) + "px";
+							seltile.updatecolor();
+							seltile.div.style.zIndex = "auto";
+							game.tilesfallingdone(false);
 						} else {
-							[tile1.type, tile2.type] = [tile2.type, tile1.type];
+							[tile.type, seltile.type] = [seltile.type, tile.type];
 							ticker = 0;
 							clearInterval(id);
 							id = setInterval(revertframe, 10);
 							function revertframe() {
 								if (ticker == 10) {
 									clearInterval(id);
-									game.tilesfalling -= 1;
-									elem1.style.top = (elem1_row*100+5) + "px";
-									elem2.style.top = (elem2_row*100+5) + "px";
-									elem1.style.zIndex = "auto";
-									elem2.style.zIndex = "auto";
+									tile.div.style.top = (tile.row*100+5) + "px";
+									seltile.div.style.top = (seltile.row*100+5) + "px";
+									seltile.div.style.zIndex = "auto";
+									game.tilesfallingdone(true);
 								} else {
 									ticker++;
-									let elem2_loc = (ticker/10)*(-direction) + elem1_row;
-									let elem1_loc = (ticker/10)*(direction) + elem2_row;
-									elem1.style.top = (elem1_loc*100+5) + "px";
-									elem2.style.top = (elem2_loc*100+5) + "px";
+									let tile_offset = (ticker/10)*(-direction) + tile.row;
+									let seltile_offset = (ticker/10)*(direction) + seltile.row;
+									tile.div.style.top = (seltile_offset*100+5) + "px";
+									seltile.div.style.top = (tile_offset*100+5) + "px";
 								}
 							}									
 						}
 					} else {
 						ticker++;
-						let elem1_loc = (ticker/10)*(-direction) + elem1_row;
-						let elem2_loc = (ticker/10)*(direction) + elem2_row;
-						elem1.style.top = (elem1_loc*100+5) + "px";
-						elem2.style.top = (elem2_loc*100+5) + "px";
+						let tile_offset = (ticker / 10) * (-direction) + tile.row;
+						let seltile_offset = (ticker / 10) * (direction) + seltile.row;
+						tile.div.style.top = (tile_offset * 100 + 5) + "px";
+						seltile.div.style.top = (seltile_offset * 100 + 5) + "px";
 					}
 				}
 			}
@@ -301,14 +369,10 @@ class Tile {
 	onmouseover() {
 		if (game.pause)
 			return;
-		if (game.selectedtile != this)
-			this.div.style.outline = "";
 	}
 	onmouseleave() {
 		if(game.pause)
 			return;
-		if (game.selectedtile != this)
-			this.div.style.outline = "";
 	}
 }
 
@@ -323,66 +387,40 @@ class GameManager
 		this.level = 5;
 		this.maindiv = document.getElementById("maindiv");
 		this.combdiv = document.createElement("div");
-		this.combdiv.classList.add("points");
-		this.combdiv.style.left = 250 + "px";
-		this.combdiv.style.top = 400 + "px";
+		this.combdiv.classList.add("combo");
 		this.maindiv.appendChild(this.combdiv);
-		this.combdiv.style.zIndex = 1500;	
 		this.combdivid = null;
-		this.pause = false;
+		this.pause = true;
 		this.tilesfalling = 0;
 		this.selectedtile = null;
 		this.currentcombo = 0;
-	}
-	updatecolumn(column) {
-		let col = this.tilearray[column];
-		
-		// remove all tiles that are destroyed
-		for (let row = 0; row < 8; row++) {
-			if (col[row] == undefined)
-				continue;
-			if (col[row].dead) {
-				col[row].deletediv();
-				col[row] = null;
-			}
-		}
-		
-		// move down tiles
-		let moves = 0;
-		for (let row = 7; row >= 0; row--) {
-			if (col[row] == undefined) {
-				moves++;
-			} else if (moves > 0) {
-				col[row].updaterow(moves);
-				col[row+moves] = col[row];
-				col[row] = null;
-			}
-		}
-		
-		// add new tiles
-		let count = 0;
-		for (let row = 7; row >= 0; row--) {
-			if (col[row] == undefined) {
-				count++;
-				let newtile = new Tile(this.currentid);
-				this.currentid += 1;
-				newtile.setcolumn(column);
-				newtile.setrow(row);
-				newtile.randomtype(this.level);
-				this.maindiv.appendChild(newtile.creatediv());
-				newtile.setdivrow(-count,row);
-				col[row] = newtile;
-			}
-		}
+		this.specialmatches = 0;
+		this.disksmoving = 0;
+		this.matches = 0;
 	}
 	updatescore() {
-		let scoretext = String(this.score).padStart(5,'0');
-		document.getElementById("scoretext").innerHTML = scoretext;
-		if (this.score > this.level * 1000 - 4000)
+		document.getElementById("scoretext").innerHTML = String(this.score).padStart(5,'0');
+		if (this.score > Math.pow(2, this.level - 5) * 1000) {
 			this.level++;
+			let ticker = 0, id = setInterval(frame, 2);
+			let scoretext = document.getElementById("scoretext");
+			let titletext = document.getElementById("titletext");
+			function frame() {
+				if (ticker == 500) {
+					clearInterval(id);
+					scoretext.style.textShadow = "none";
+					titletext.style.textShadow = "none";
+				} else {
+					ticker++;
+					let fade = Math.ceil(ticker/2);
+					let newcolor = tiletypes[game.level - 1];
+					scoretext.style.textShadow = "0px 0px " + fade + "px " + newcolor;
+					titletext.style.textShadow = "0px 0px " + fade + "px " + newcolor;
+				}
+			}
+		}
 	}
 	checkline(line, axis) {
-		let anymatches = 0;
 		let column = 0, row = 0;
 		for (let i = 0; i < 6; i++) {
 			if (axis)
@@ -415,11 +453,10 @@ class GameManager
 					this.pointsbubble(100, 100, tile);
 				else
 					tile.dead = true;
-			anymatches += 1;
+			this.matches += 1;
 		}		
-		return anymatches;
 	}
-	pointsbubble(amount,fontsize,tile) {
+	pointsbubble(amount, fontsize, tile) {
 		this.score += amount;
 		let mainrect = this.maindiv.getBoundingClientRect();
 		let x = tile.column * 100 + 50 + mainrect.left;
@@ -428,11 +465,8 @@ class GameManager
 		newdiv.innerHTML = amount;
 		newdiv.style.top = y + "px";
 		newdiv.style.left = x + "px";
-		newdiv.style.fontSize  = fontsize + "px";;
-		var ticker = 0;
-		var id = null;
-		clearInterval(id);
-		id = setInterval(frame, 1);
+		newdiv.style.fontSize = fontsize + "px";
+		let ticker = 0, id = setInterval(frame, 1);
 		newdiv.classList.add("points");
 		//game.maindiv.appendChild(newdiv);
 		document.body.appendChild(newdiv);
@@ -443,45 +477,238 @@ class GameManager
 				newdiv.remove();
 			} else {
 				ticker++;
-				newdiv.style.top = (y - (ticker/2)) + "px";
+				newdiv.style.top = (y - (ticker / 2)) + "px";
 			}		
 		}
 	}
 	combo() {
 		this.score += this.currentcombo * 10;
 		this.combdiv.innerHTML = "COMBO x" + this.currentcombo;
-		var currentcombo = this.currentcombo;
-		var ticker = 0;
 		clearInterval(game.combdivid);
-		game.combdivid = setInterval(frame, 1);
 		game.combdiv.hidden = false;
+		let ticker = 0;
+		game.combdivid = setInterval(frame, 1);
 		function frame() {	
 			if (ticker == 350) {
 				clearInterval(game.combdivid);
 				game.combdiv.hidden = true;
 			} else {
 				ticker++;
-				game.combdiv.style.opacity = 1 - (ticker/350);
+				if(ticker > 100)
+					game.combdiv.style.opacity = 1 - ((ticker-100)/250);
+				else
+					game.combdiv.style.opacity = 1;
 			}		
 		}
 	}
-	checkmatches() {
-		let anymatches = 0;
-		for (let i = 0; i < 8; i++) {
-			anymatches += this.checkline(i, true);
-			anymatches += this.checkline(i, false);
+	tilesfallingdone(skip) {
+		this.tilesfalling -= 1;
+		if(!this.tilesfalling && !this.disksmoving) {
+			this.pause = false;
+			if (skip)
+				return;
+			this.checkmatches();
 		}
-		if (anymatches)
+	}
+	disksdone(tile) {
+		this.updatescore();
+		this.disksmoving -= 1;
+		if(!this.disksmoving && !this.tilesfalling) {
+			this.pause = false;
+			tile.special = false;
+			tile.dead = true;
+			this.updategrid();
+		}
+	}
+	cleartype(tile) {
+		for (const tile_columns of this.tilearray) {
+			for (const other_tile of tile_columns) {
+				if (other_tile == tile)
+					continue;
+				if (other_tile.type == tile.type) {
+					if (other_tile.dead)
+						continue;
+					const disk = document.createElement("div");
+					disk.classList.add("disk");
+					disk.style.backgroundColor = tile.type;
+					disk.style.top = "-100px";
+					disk.style.left = "-100px";
+					maindiv.appendChild(disk);
+					
+					const start_x = tile.column * 100 + 40;
+					const start_y = tile.row * 100 + 40;
+					const offset_x = (other_tile.column * 100 + 40) - start_x;
+					const offset_y = (other_tile.row * 100 + 40) - start_y;
+					this.disksmoving += 1;
+					this.pause = true;
+					other_tile.dead = true;
+					let ticker = 0;
+					const id = setInterval(frame, 10);
+					function frame() {
+						if (ticker == 100) {
+							clearInterval(id);
+							game.pointsbubble(10, 40, other_tile);
+							disk.remove();
+							game.disksdone(tile);
+						} else {
+							ticker++;
+							let ratio = ticker/100;
+							disk.style.left = (start_x + offset_x * ratio) + "px";
+							disk.style.top = (start_y + offset_y * ratio) + "px";
+						}
+					}
+				}
+			}
+		}
+	}
+	updatecolumn(column) {
+		let col = this.tilearray[column];
+		
+		// move down tiles
+		let moves = 0;
+		for (let row = 7; row >= 0; row--) {
+			if (col[row].dead) {
+				delete col[row];
+				moves++;
+			} else if (moves > 0) {
+				col[row].updaterow(moves);
+				col[row+moves] = col[row];
+			}
+		}
+		
+		// add new tiles
+		for (let last = moves--; moves >= 0; moves--) {
+			let newtile = new Tile(this.currentid);
+			this.currentid += 1;
+			newtile.setcolumn(column);
+			newtile.setrow(moves);
+			newtile.randomtype(this.level);
+			if (this.specialmatches > this.level * 5) {
+				this.specialmatches -= this.level * 5;
+				newtile.special = true;
+			}
+			this.maindiv.appendChild(newtile.creatediv());
+			newtile.divfall(-(last - moves), moves);
+			col[moves] = newtile;
+		}
+	} 
+	cleardead () {
+		let anydead = 0;
+		for (const tiles of this.tilearray)
+			for (const tile of tiles)
+				if(tile.dead) {
+					if(tile.special)
+						continue;
+					tile.deletediv();
+					anydead++;
+				}
+		return anydead;
+	}
+	updategrid() {
+		if (!this.cleardead())
+			return;
+		for (let column = 0; column < 8; column++)
+			for (let row = 0; row < 8; row++)
+				if (this.tilearray[column][row].dead) {
+					this.updatecolumn(column);
+					row = 8;
+				}
+	}
+	checkmatches() {
+		this.matches = 0;
+		for (let i = 0; i < 8; i++) {
+			this.checkline(i, true);
+			this.checkline(i, false);
+		}
+		if (this.matches)
 		{
-			this.currentcombo += anymatches;
+			this.updatescore();
+			this.specialmatches += this.matches;
+			this.currentcombo += this.matches;
 			if (this.currentcombo > 1)
 				this.combo();
-			this.updatescore();
-			this.updategrid();
+			this.cleardead();
+			let anyspecial = false;
+			for (const tiles of this.tilearray)
+				for (const tile of tiles)
+					if (tile.special && tile.dead) {
+						anyspecial = true;
+						this.cleartype(tile);
+					}
+			if (!anyspecial) {
+				this.updategrid();
+			}
 		}
 		else
 			this.currentcombo = 0;
-		this.updatescore();
+		this.isgamedone();
+	}
+	adjacent(column, row, type) {
+		let count = 0;
+		if(0 < column)
+			if(this.tilearray[column - 1][row].type == type)
+				count++;
+		if(column < 7)
+			if(this.tilearray[column + 1][row].type == type)
+				count++;
+		if(0 < row)
+			if(this.tilearray[column][row - 1].type == type)
+				count++;
+		if(row < 7)
+			if(this.tilearray[column][row + 1].type == type)
+				count++;
+		return count;
+	}
+	isgamedone() {
+		let possible_moves = 0;
+		for (let column = 0; column < 8; column++) {
+			for (let row = 0; row < 7; row++) {
+				let type = this.tilearray[column][row].type;
+				if (this.tilearray[column][row + 1].type == type) {
+					if(0 < row)
+						if(this.adjacent(column, row - 1, type) > 1)
+							possible_moves++;
+					if(row < 6)
+						if(this.adjacent(column, row + 2, type) > 1)
+							possible_moves++;
+				} else if (0 < row & row < 6) {
+					if (this.tilearray[column][row + 2].type == type) {
+						if(0 < column)
+							if(this.adjacent(column - 1, row + 1, type) > 1)
+								possible_moves++;
+						if(column < 6)
+							if(this.adjacent(column + 1, row + 1, type) > 1)
+								possible_moves++;
+					}
+				}
+			}
+		}
+		for (let row = 0; row < 8; row++) {
+			for (let column = 0; column < 7; column++) {
+				let type = this.tilearray[column][row].type;
+				if (this.tilearray[column + 1][row].type == type) {
+					if(0 < column)
+						if(this.adjacent(column - 1, row, type) > 1)
+							possible_moves++;
+					if(column < 6)
+						if(this.adjacent(column + 2, row, type) > 1)
+							possible_moves++;
+				} else if (0 < column && column < 6) {
+					if (this.tilearray[column + 2][row].type == type) {
+						if(0 < row)
+							if(this.adjacent(column + 1, row - 1, type) > 1)
+								possible_moves++;
+						if(row < 6)
+							if(this.adjacent(column + 1, row + 1, type) > 1)
+								possible_moves++;
+					}
+				}
+			}
+		}
+		if (possible_moves == 0)
+			for (const i of this.tilearray)
+				for (const g of i)
+					g.div.style.opacity = "0.8";	
 	}
 	validmove(column, row, type) {
 		if (1 < row)
@@ -512,10 +739,6 @@ class GameManager
 		}
 		return null;			
 	}
-	updategrid() {
-		for (let i = 0; i < 8; i++)
-			this.updatecolumn(i);
-	}
 	newgame() {
 		for (let column = 0; column < 8; column++)
 			setTimeout(()=> {
@@ -531,7 +754,7 @@ class GameManager
 						newtile.setrow(row);
 						newtile.randomtype(game.level);
 						game.maindiv.appendChild(newtile.creatediv());
-						newtile.setdivrow(-count,row);
+						newtile.divfall(-count,row);
 						col[row] = newtile;
 					}
 				} ,
