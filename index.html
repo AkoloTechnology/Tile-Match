@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
+<meta name="viewport" content="width=800, initial-scale=1.0">
 <head>
 <style>
 body{margin:0;}
-
 #maindiv {
 	margin: auto;
 	position: relative;
@@ -12,6 +12,7 @@ body{margin:0;}
 	user-select: none;
 	overflow:hidden;
 }
+
 
 .tile {
 	position: absolute;
@@ -606,7 +607,7 @@ class GameManager
 	}
 	updategrid() {
 		if (!this.cleardead())
-			return;
+			this.isgamedone();
 		for (let column = 0; column < 8; column++)
 			for (let row = 0; row < 8; row++)
 				if (this.tilearray[column][row].dead) {
@@ -641,7 +642,6 @@ class GameManager
 		}
 		else
 			this.currentcombo = 0;
-		this.isgamedone();
 	}
 	adjacent(column, row, type) {
 		let count = 0;
